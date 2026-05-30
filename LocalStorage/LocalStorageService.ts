@@ -16,6 +16,8 @@ const defaultLocalStorageKeys = {
     token: "token" as StorageKey<string>,
 }
 
+export type DefaultLocalStorageKeys = typeof defaultLocalStorageKeys;
+
 export type LocalStorageOptions<TKeysExtension extends Record<string, StorageKey<Serializable>> = {}> = {
     /** Prefixo adicionado automaticamente a todas as chaves no local-storage. */
     keyPrefix?: string;
@@ -23,46 +25,45 @@ export type LocalStorageOptions<TKeysExtension extends Record<string, StorageKey
     keyExtensions?: TKeysExtension
 }
 
+export type LocalStorageConfigurationOptions<TKeysExtension extends Record<string, StorageKey<Serializable>> = {}> = LocalStorageOptions<TKeysExtension>;
+export type LocalStorageServiceOptions<TKeysExtension extends Record<string, StorageKey<Serializable>> = {}> = LocalStorageOptions<TKeysExtension>;
+
 export type LocalStorageService<TKeys extends Record<string, StorageKey<Serializable>>> = {
     get: <S extends Serializable>(key: StorageKey<S> | string) => S | null;
     put: <S extends Serializable>(key: StorageKey<S> | string, value: S) => void;
     remove: (key: StorageKey<Serializable> | string) => void;
     /** Dicionário de chaves disponíveis (combinando as chaves padrão, aplicação e contexto). */
-    keys: typeof defaultLocalStorageKeys & TKeys;
+    keys: DefaultLocalStorageKeys & TKeys;
 }
 
 // Level 1: Application (Definition)
-export function defineLocalStorage<TAppKeys extends Record<string, StorageKey<Serializable>> = {}>(
-    appOptions?: LocalStorageOptions<TAppKeys>
+export function configureLocalStorageService<TAppKeys extends Record<string, StorageKey<Serializable>> = {}>(
+    configurationOptions?: LocalStorageConfigurationOptions<TAppKeys>
 ) {
+    if (typeof window === "undefined") {
+        throw new Error("Cannot use localStorage outside a browser");
+    }
     
     // Level 2: Context (Factory)
     return function createService<TContextKeys extends Record<string, StorageKey<Serializable>> = {}>(
-        contextOptionsOrCb?: LocalStorageOptions<TContextKeys> | ((appOpts?: LocalStorageOptions<TAppKeys>) => LocalStorageOptions<TContextKeys>)
+        serviceOptions?: LocalStorageServiceOptions<TContextKeys>
     ): LocalStorageService<TAppKeys & TContextKeys> {
-        
-        const contextOptions = typeof contextOptionsOrCb === 'function' 
-            ? contextOptionsOrCb(appOptions) 
-            : contextOptionsOrCb;
 
-        // Resolve prefix (Context overrides Application)
-        const prefix = contextOptions?.keyPrefix ?? appOptions?.keyPrefix ?? "";
-
-        // Merge keys (Default + Application + Context)
         const keys = {
             ...defaultLocalStorageKeys,
-            ...(appOptions?.keyExtensions ?? {}),
-            ...(contextOptions?.keyExtensions ?? {})
-        } as typeof defaultLocalStorageKeys & TAppKeys & TContextKeys;
+            ...(configurationOptions?.keyExtensions ?? {}),
+            ...(serviceOptions?.keyExtensions ?? {})
+        } as DefaultLocalStorageKeys & TAppKeys & TContextKeys;
 
-        // SSR Safety check: Ensure window is defined before accessing localStorage
-        const isBrowser = typeof window !== "undefined";
+        const options = {
+            keyExtensions: keys,
+            keyPrefix: serviceOptions?.keyPrefix ?? configurationOptions?.keyPrefix ?? "",
+        }
 
         // Level 3: Execution (Methods)
         const get = <S extends Serializable>(key: StorageKey<S> | string): S | null => {
-            if (!isBrowser) return null;
             try {
-                const value = localStorage.getItem(prefix + key);
+                const value = localStorage.getItem(options.keyPrefix + key);
                 return value ? JSON.parse(value) : null;
             } catch {
                 return null;
@@ -70,13 +71,10 @@ export function defineLocalStorage<TAppKeys extends Record<string, StorageKey<Se
         };
 
         const put = <S extends Serializable>(key: StorageKey<S> | string, value: S): void => {
-            if (!isBrowser) return;
-            localStorage.setItem(prefix + key, JSON.stringify(value));
+            localStorage.setItem(options.keyPrefix + key, JSON.stringify(value));
         };
-
         const remove = (key: StorageKey<Serializable> | string): void => {
-            if (!isBrowser) return;
-            localStorage.removeItem(prefix + key);
+            localStorage.removeItem(options.keyPrefix + key);
         };
 
         return {
@@ -86,4 +84,8 @@ export function defineLocalStorage<TAppKeys extends Record<string, StorageKey<Se
             keys,
         };
     }
+}
+
+export const LocalStorageService = {
+    configure: configureLocalStorageService,
 }

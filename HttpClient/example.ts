@@ -1,4 +1,4 @@
-import { defineHttpClient } from './httpClient';
+import { HttpClient } from './httpClient';
 
 // --- Type Definitions for the Example ---
 type User = { id: number; name: string; email: string };
@@ -9,7 +9,7 @@ type Post = { id: number; userId: number; title: string };
 // ==========================================
 // Define the root behaviors for our entire application.
 // We apply a global timeout, a base URL, and an authorization interceptor.
-const createApiClient = defineHttpClient({
+const createApiClient = HttpClient.configure({
     baseUrl: 'http://localhost:3000/api/v1',
     requestOptions: {
         // App-level default headers
@@ -37,7 +37,7 @@ const createApiClient = defineHttpClient({
 // Notice how we append to the baseUrl and override headers.
 
 const usersClient = createApiClient({
-    baseUrl: 'http://localhost:3000/api/v1/users', // Context overrides App baseUrl
+    urlSuffix: 'users', // Context overrides App baseUrl
     requestOptions: {
         headers: {
             'X-Context': 'UsersService' // Merges with App-level headers
@@ -46,7 +46,7 @@ const usersClient = createApiClient({
 });
 
 const postsClient = createApiClient({
-    baseUrl: 'http://localhost:3000/api/v1/posts',
+    urlSuffix: 'posts',
     responseInterceptor: async (res) => {
         // Context-specific behavior: intercepting only Post responses
         if (res.status === 403) {
@@ -89,19 +89,8 @@ async function runExample() {
         });
         console.log('Created Post:', newPost);
 
-        // 4. Bypassing all baseUrls with an absolute URL at the Request level
-        console.log('\nFetching data from a completely different absolute URL...');
-        const externalData = await usersClient.get<any>('https://jsonplaceholder.typicode.com/todos/1', {
-            // Because we pass an absolute URL, the internal logic ignores the baseUrl
-            requestInterceptor: (url, options) => {
-                console.log(`[REQUEST-LEVEL LOG] Special interceptor just for this call: ${url}`);
-                return options;
-            }
-        });
-        console.log('External Data:', externalData);
-
     } catch (error) {
-        console.error('\n[ERROR] Request failed:', error.message);
+        console.error('\n[ERROR] Request failed:', (error as any)?.message);
     }
 }
 
