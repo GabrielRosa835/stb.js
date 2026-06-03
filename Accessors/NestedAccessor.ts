@@ -33,7 +33,7 @@ function traverse(prop: string, target: any) {
     if (current == null || current == undefined) {
       const failedPath = traversed.join('.');
       throw new TypeError(
-        `Nest Proxy Error: Failed to resolve path '${prop}'. The property '${failedPath}' evaluated to ${String(current)}.`
+        `Nested-Proxy Error: Failed to resolve path '${prop}'. The property '${failedPath}' evaluated to ${String(current)}.`
       );
     }
 

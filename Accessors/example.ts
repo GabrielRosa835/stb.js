@@ -21,15 +21,15 @@ const user = Nest.for<UserData>({
 });
 
 // 🟢 Valid: Returns `string` (Type fully inferred!)
-const userName: string = user['profile.name']; 
+console.log(user['profile.name']);
 
 // 🟢 Valid: Returns `{ email: string, phone: string }`
-const contactObj = user['profile.contact'];
+console.log(user['profile.contact']);
 
 // 🔴 TypeScript Error: Property 'profile.contact.mail' does not exist...
-const badProp = user['profile.contact.mail'];
+// const badProp = user['profile.contact.mail'];
 
 const unwrappedUser = Nest.unwrap(user);
 
 // 🔴 TypeScript Error: Property 'profile.contact.mail' does not exist...
-const contactObjAgain = unwrappedUser['profile.contact'];
+console.log(unwrappedUser['profile']);

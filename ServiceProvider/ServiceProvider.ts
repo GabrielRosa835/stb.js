@@ -102,7 +102,7 @@ export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> 
      * Compiles the registered services into a functional container factory.
      * @returns A factory function that generates containers (`MapServiceProvider`).
      */
-    build(): () => ServiceProvider<TMap>;
+    buildSpecification(): () => ServiceProvider<TMap>;
 }
 
 /**
@@ -216,14 +216,14 @@ function createServiceCollection<TDefinition extends ServicesDefinition>(): Serv
             registry[key as unknown as keyof TDefinition] = { lifetime: 'transient', factory } as ServiceDescriptor<any, TDefinition>;
             return this;
         },
-        build: () => configureServiceContainer(registry),
+        buildSpecification: () => configureServiceContainer(registry),
     };
 
     return builder;
 }
 
 export const ServiceProvider = {
-    create: configureServiceContainer,
+    specify: configureServiceContainer,
 }
 
 export const ServiceCollection = {

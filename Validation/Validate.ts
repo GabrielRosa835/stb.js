@@ -359,17 +359,23 @@ const required = <T>(customMessage?: string): Validation<T> => (entry) => {
 
 
 export const Validate = {
-    email,
-    field,
+    all,
     filter,
     first,
-    forEach,
-    inRange,
+
     ipAddress,
+    email,
+
     length,
-    noneOf,
+    forEach,
     notEmpty,
+
+    field,
+    select,
+
+    inRange,
+    
+    noneOf,
     oneOf,
     required,
-    select,
 };

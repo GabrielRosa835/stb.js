@@ -37,7 +37,7 @@ export type LocalStorageService<TKeys extends Record<string, StorageKey<Serializ
 }
 
 // Level 1: Application (Definition)
-export function configureLocalStorageService<TAppKeys extends Record<string, StorageKey<Serializable>> = {}>(
+function configureLocalStorageService<TAppKeys extends Record<string, StorageKey<Serializable>> = {}>(
     configurationOptions?: LocalStorageConfigurationOptions<TAppKeys>
 ) {
     if (typeof window === "undefined") {
@@ -87,5 +87,5 @@ export function configureLocalStorageService<TAppKeys extends Record<string, Sto
 }
 
 export const LocalStorageService = {
-    configure: configureLocalStorageService,
+    specify: configureLocalStorageService,
 }

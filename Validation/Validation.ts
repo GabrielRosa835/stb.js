@@ -1,4 +1,4 @@
-export type ValidationSeverity = "error" | "warning" | "info"
+export type ValidationSeverity = "error" | "warning" | "info";
 
 export type ValidationResult = {
     errors: ValidationError[];
