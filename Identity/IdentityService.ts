@@ -144,5 +144,5 @@ function configureIdentityService<TClaims extends Record<string, any>>
 }
 
 export const IdentityService = {
-    specify: configureIdentityService,
+    configure: configureIdentityService,
 }

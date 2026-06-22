@@ -1,10 +1,9 @@
-import { Validation } from "./Validation";
+import { Validate } from "./Validate";
 
 // 1. Primitive Validation
-const validatePassword = Validation.compose<string>(
-    Validation.required(),
-    Validation.length(8, 20)
-);
+const validatePassword = Validate.all<string>(
+    Validate.required(),
+    Validate.length({ min: 8, max: 20 }));
 
 // 2. Complex Object Validation
 type User = {
@@ -15,21 +14,22 @@ type User = {
     role: "admin" | "user";
 };
 
-const validateUser = Validation.compose<User>(
-    // Validate top-level primitive
-    Validation.field("name", Validation.compose(
-        Validation.required(), 
-        Validation.length(2, 50))),
+const validateUser = Validate.all<User>(
     
+    Validate.field("name", Validate.all(
+        Validate.required(),
+        Validate.length({ min: 2, max: 50 }),
+    )),
+
     // Type-safe union validation
-    Validation.field("role", Validation.oneOf(["admin", "user"])),
-    
+    Validate.field("role", Validate.oneOf(["admin", "user"])),
+
     // Deeply nested validation
-    Validation.field("contact", Validation.compose(
-        Validation.required(),
-        Validation.field("email", Validation.compose(
-            Validation.required(), 
-            Validation.email()))
+    Validate.field("contact", Validate.all(
+        Validate.required(),
+        Validate.field("email", Validate.all(
+            Validate.required(),
+            Validate.email()))
     ))
 );
 

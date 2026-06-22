@@ -73,7 +73,7 @@ export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> 
      * @param key The string identifier for the service.
      * @param factory The factory function. The injected provider knows about all previously registered services.
      */
-    addSingleton<K extends string, T>(
+    addSingleton<K extends keyof TMap, T>(
         key: K, 
         factory: (sp: ServiceProvider<TMap>) => T
     ): ServiceCollection<TMap>;
@@ -83,7 +83,7 @@ export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> 
      * @param key The string identifier for the service.
      * @param factory The factory function.
      */
-    addScoped<K extends string, T>(
+    addScoped<K extends keyof TMap, T>(
         key: K, 
         factory: (sp: ServiceProvider<TMap>) => T
     ): ServiceCollection<TMap>;
@@ -93,7 +93,7 @@ export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> 
      * @param key The string identifier for the service.
      * @param factory The factory function.
      */
-    addTransient<K extends string, T>(
+    addTransient<K extends keyof TMap, T>(
         key: K, 
         factory: (sp: ServiceProvider<TMap>) => T
     ): ServiceCollection<TMap>;
@@ -102,7 +102,7 @@ export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> 
      * Compiles the registered services into a functional container factory.
      * @returns A factory function that generates containers (`MapServiceProvider`).
      */
-    buildSpecification(): () => ServiceProvider<TMap>;
+    build(): () => ServiceProvider<TMap>;
 }
 
 /**
@@ -216,14 +216,14 @@ function createServiceCollection<TDefinition extends ServicesDefinition>(): Serv
             registry[key as unknown as keyof TDefinition] = { lifetime: 'transient', factory } as ServiceDescriptor<any, TDefinition>;
             return this;
         },
-        buildSpecification: () => configureServiceContainer(registry),
+        build: () => configureServiceContainer(registry),
     };
 
     return builder;
 }
 
 export const ServiceProvider = {
-    specify: configureServiceContainer,
+    configure: configureServiceContainer,
 }
 
 export const ServiceCollection = {

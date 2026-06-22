@@ -1,8 +1,7 @@
 import { ResourceManager } from "./ResourceManager";
-import { Resources } from "./Resources";
+import { Resources } from "./ResourceManager";
 
-const resources = Resources.define(
-    {
+const resources = Resources.define({
     default: {
         "en-US": {
             greeting: "Hello",
@@ -13,7 +12,7 @@ const resources = Resources.define(
     fallback: {
         "es-ES": {
             greeting: "Hola",
-            error_404: "No encontrado"
+            error_404: "No encontrado",
         },
     },
     others: {
@@ -24,7 +23,9 @@ const resources = Resources.define(
     },
 });
 
-const useResources = ResourceManager.specify(resources);
+const useResources = ResourceManager.configure(resources);
 
-const resources2 = useResources();
+const resourceManager = useResources();
+
+const value = resourceManager.setNamespace("es-ES");
 

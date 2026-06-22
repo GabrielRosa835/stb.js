@@ -87,5 +87,5 @@ function configureLocalStorageService<TAppKeys extends Record<string, StorageKey
 }
 
 export const LocalStorageService = {
-    specify: configureLocalStorageService,
+    configure: configureLocalStorageService,
 }

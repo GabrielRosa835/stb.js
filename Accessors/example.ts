@@ -1,22 +1,14 @@
 import { Nest } from "./NestedAccessor";
 
-type UserData = {
-  id: number;
-  profile: {
-    name: string;
-    contact: {
-      email: string;
-      phone: string;
-    };
-  };
-};
-
 // --- Usage ---
-const user = Nest.for<UserData>({
+const user = Nest.for({
   id: 1,
   profile: {
     name: 'Ana',
-    contact: { email: 'ana@example.com', phone: '9999-9999' }
+    contact: {
+      email: 'ana@example.com', 
+      phone: '9999-9999' 
+    }
   }
 });
 
@@ -31,5 +23,5 @@ console.log(user['profile.contact']);
 
 const unwrappedUser = Nest.unwrap(user);
 
-// 🔴 TypeScript Error: Property 'profile.contact.mail' does not exist...
-console.log(unwrappedUser['profile']);
+// 🔴 TypeScript Error: Property 'profile.contact.email' does not exist...
+// console.log(unwrappedUser['profile.contact.email']);

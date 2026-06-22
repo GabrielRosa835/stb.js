@@ -1,12 +1,18 @@
-import { createServiceCollection } from './ServiceProvider';
+import { ServiceCollection } from './ServiceProvider';
 
 // Define some interfaces
 interface IDatabase { query: () => string; }
 interface IUserRepository { getUser: () => string; }
 interface IEmailService { send: () => void; }
 
+type Services = {
+    "db": IDatabase;
+    "emailProvider": IEmailService;
+    "userRepo": IUserRepository;
+}
+
 // 1. Build the collection fluently
-const containerFactory = createServiceCollection()
+const containerFactory = ServiceCollection.create<Services>()
     // Services that have zero dependencies
     .addSingleton('db', (): IDatabase => ({ 
         query: () => "SELECT * FROM Users" 

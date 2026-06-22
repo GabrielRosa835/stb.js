@@ -1,4 +1,4 @@
-import { HttpClient } from './httpClient';
+import { HttpClient } from './HttpClient';
 
 // --- Type Definitions for the Example ---
 type User = { id: number; name: string; email: string };
@@ -37,7 +37,7 @@ const createApiClient = HttpClient.configure({
 // Notice how we append to the baseUrl and override headers.
 
 const usersClient = createApiClient({
-    urlSuffix: 'users', // Context overrides App baseUrl
+    urlSuffix: 'users', // Context appends to App baseUrl
     requestOptions: {
         headers: {
             'X-Context': 'UsersService' // Merges with App-level headers

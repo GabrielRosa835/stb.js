@@ -198,5 +198,5 @@ function configureHttpClient(configurationOptions: HttpClientConfigurationOption
 }
 
 export const HttpClient = {
-    specify: configureHttpClient
+    configure: configureHttpClient
 }
