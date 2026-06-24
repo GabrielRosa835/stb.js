@@ -1,8 +1,8 @@
-export type Validation<T> = (entry: T) => Validation.Result;
+export type Validation<T> = (entry: T, context?: Validation.Context) => Validation.Result;
 
 export namespace Validation {
 
-    export type ErrorLike = string | Error;
+    export type ErrorLike = string | ErrorDefinition | Error;
 
     export type ErrorDefinition = {
         message: string;
@@ -10,7 +10,7 @@ export namespace Validation {
         code?: string;
         attempted?: any;
         state?: any;
-        severity?: Validation.Severity;
+        severity?: Severity;
     }
 
     export type Error = {
@@ -35,38 +35,54 @@ export namespace Validation {
 
     export type Severity = "error" | "warning" | "info";
 
-    export type MessageFormatter = (error: Error) => string | undefined;
-    export type ErrorInterceptor = (error: Error) => Error | undefined;
-    export type ResultInterceptor = (error: Result) => Result | undefined;
+    export type MessageFormatter = (error: Error) => string | void;
+    export type ErrorInterceptor = (error: Error) => Error | void;
+    export type ResultInterceptor = (error: Result) => Result | void;
 
+    export type Unsubscriber = () => void;
+
+    /**
+     * The pipeline should always be 'message formatter' -> 'error interceptor' -> 'result interceptor'
+     */
     export type Context = {
-        state: unknown;
-        addFormatter: (formatter: MessageFormatter) => void;
-        addErrorInterceptor: (interceptor: ErrorInterceptor) => void;
-        addResultInterceptor: (interceptor: ResultInterceptor) => void;
-        messageFor: (error: Validation.Error) => string;
-        errorFor: (error: Validation.Error) => Validation.Error;
-        resultFor: (error: Validation.Result) => Validation.Result;
+        /** User defined state to allow identifying and managing multiple contexts */
+        readonly state: unknown;
+
+        readonly addFormatter: (formatter: MessageFormatter) => Unsubscriber;
+        readonly addErrorInterceptor: (interceptor: ErrorInterceptor) => Unsubscriber;
+        readonly addResultInterceptor: (interceptor: ResultInterceptor) => Unsubscriber;
+
+        readonly messageFor: (error: Error) => string;
+        readonly errorFor: (error: Error) => Error;
+        readonly resultFor: (error: Result) => Result;
+
+        readonly failure: (error: ErrorLike | ErrorLike[], ...errors: ErrorLike[]) => Result;
+        readonly success: () => Result;
+        readonly error: (def: ErrorDefinition | string) => Error
     }
 }
 
-const createContext = (): Validation.Context => {
+const createContext = (state: unknown): Validation.Context => {
 
-    const formatters: Validation.MessageFormatter[] = [];
-    const errorInterceptors: Validation.ErrorInterceptor[] = [];
-    const resultInterceptors: Validation.ResultInterceptor[] = [];
+    const _formatters: Set<Validation.MessageFormatter> = new Set();
+    const _errorInterceptors: Set<Validation.ErrorInterceptor> = new Set();
+    const _resultInterceptors: Set<Validation.ResultInterceptor> = new Set();
 
-    function addFormatter(formatter: Validation.MessageFormatter) {
-        formatters.push(formatter);
+    function addFormatter(formatter: Validation.MessageFormatter): Validation.Unsubscriber {
+        _formatters.add(formatter);
+        return () => _formatters.delete(formatter);
     }
-    function addErrorInterceptor(interceptor: Validation.ErrorInterceptor) {
-        errorInterceptors.push(interceptor);
+    function addErrorInterceptor(interceptor: Validation.ErrorInterceptor): Validation.Unsubscriber {
+        _errorInterceptors.add(interceptor);
+        return () => _errorInterceptors.delete(interceptor);
     }
-    function addResultInterceptor(interceptor: Validation.ResultInterceptor) {
-        resultInterceptors.push(interceptor);
+    function addResultInterceptor(interceptor: Validation.ResultInterceptor): Validation.Unsubscriber {
+        _resultInterceptors.add(interceptor);
+        return () => _resultInterceptors.delete(interceptor);
     }
+
     function messageFor(error: Validation.Error): string {
-        for (const formatter of formatters) {
+        for (const formatter of _formatters) {
             const msg = formatter(error);
             if (msg !== undefined) {
                 return msg;
@@ -75,7 +91,7 @@ const createContext = (): Validation.Context => {
         return error.message;
     }
     function errorFor(error: Validation.Error): Validation.Error {
-        for (const interceptor of errorInterceptors) {
+        for (const interceptor of _errorInterceptors) {
             const intercepted = interceptor(error);
             if (intercepted !== undefined) {
                 return intercepted;
@@ -84,7 +100,7 @@ const createContext = (): Validation.Context => {
         return error;
     }
     function resultFor(result: Validation.Result): Validation.Result {
-        for (const interceptor of resultInterceptors) {
+        for (const interceptor of _resultInterceptors) {
             const intercepted = interceptor(result);
             if (intercepted !== undefined) {
                 return intercepted;
@@ -93,106 +109,82 @@ const createContext = (): Validation.Context => {
         return result;
     }
 
-    return {
-        state: undefined,
-        addFormatter,
-        addErrorInterceptor,
-        addResultInterceptor,
-        messageFor,
-        errorFor,
-        resultFor,
-    }
-}
+    function createFailure(error: Validation.ErrorLike | Validation.ErrorLike[], ...errors: Validation.ErrorLike[]): Validation.Result {
 
+        const outErrors: Validation.ErrorLike[] = [];
 
-const createValidation = () => {
-
-    let _context: Validation.Context = createContext();
-    let _contextComparer: ContextComparer | undefined = undefined;
-    let _contextListener: ContextListener | undefined = undefined;
-
-    const failure: (error: Validation.ErrorLike | Validation.ErrorLike[], ...errors: Validation.ErrorLike[]) => Validation.Result = (error, ...errors) => {
-        function toError(msg: Validation.ErrorLike): Validation.Error {
-            const error: Validation.Error = typeof msg === "string" ? { message: msg, severity: "error" } : msg;
-            error.message = _context.messageFor(error);
-            return _context.errorFor(error);
+        if (!Array.isArray(error)) {
+            outErrors.push(error);
         }
-        let firstErrors;
-        if (Array.isArray(error)) {
+        else {
+            // TODO: Verify this constraint
             if (error.length === 0) {
                 throw new Error("Cannot create a failed validation result without errors");
             }
-            firstErrors = error.map(toError);
+            outErrors.push(...error);
         }
-        else {
-            firstErrors = [toError(error)];
-        }
+
+        outErrors.push(...errors);
+
         return {
             isValid: false,
-            errors: errors.length == 0 ? [...firstErrors] : [...firstErrors, ...errors.map(toError)],
+            errors: outErrors.map(createError),
         };
     }
 
-    const success: () => Validation.Result = () => {
-        return _context.resultFor({ errors: [], isValid: true });
+    function createSuccess(): Validation.Result {
+        return resultFor({ errors: [], isValid: true });
     };
 
-    const error = ({
-        message,
-        property,
-        code,
-        attempted,
-        state,
-        severity
-    }: Validation.ErrorDefinition): Validation.Error => {
-        const error = {
-            message,
-            property,
-            attempted,
-            state,
-            severity: severity ?? "error",
-            code,
+    function createError(def: Validation.ErrorLike): Validation.Error {
+        const base: Validation.Error = {
+            message: "",
+            severity: "error",
         };
-        error.message = _context.messageFor(error);
-        return _context.errorFor(error);
+        if (typeof def === 'string') {
+            base.message = def;
+        }
+        else {
+            base.message = def.message;
+            base.property = def.property;
+            base.attempted = def.attempted;
+            base.state = def.state;
+            base.code = def.code;
+            base.severity = def.severity ?? base.severity;
+        }
+        base.message = messageFor(base);
+        return errorFor(base);
     };
-
-    const setContext = (context: Validation.Context) => {
-        if (_contextComparer && _contextComparer(_context, context)) {
-            return;
-        }
-        if (context.state !== undefined && Object.is(_context.state, context.state)) {
-            return;
-        }
-        if (_context === context) {
-            return;
-        }
-        
-        _context = context;
-        if (_contextListener) {
-            _contextListener(context);
-        }
-    }
-
-    type ContextComparer = (ctx1: Validation.Context, ctx2: Validation.Context) => boolean;
-    type ContextListener = (context: Validation.Context) => void;
-
-    const onContextChanged = (listener: ContextListener, comparer?: ContextComparer) => {
-        _contextListener = listener;
-        _contextComparer = comparer;
-    }
 
     return {
-        failure,
-        success,
-        error,
-        createContext,
-        setContext,
-        onContextChanged,
-        get context() {
-            return _context;
-        },
-    } as const;
+
+        state,
+
+        addFormatter,
+        addErrorInterceptor,
+        addResultInterceptor,
+
+        messageFor,
+        errorFor,
+        resultFor,
+
+        failure: createFailure,
+        success: createSuccess,
+        error: createError,
+
+    };
 }
 
-export const Validation = createValidation();
+type GlobalValidationContext = Validation.Context & {
+    createContext: (state: unknown) => Validation.Context;
+};
+
+/** 
+ * A global `Validation.Context`.
+ * Used as fallback when no other is specified at the Validation<T> level.
+ * Exposes a `createContext` method to create custom ones with a unique state as identifier.
+ */
+export const Validation: GlobalValidationContext = {
+    ...createContext(undefined),
+    createContext,
+} as const;

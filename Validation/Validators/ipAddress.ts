@@ -5,16 +5,23 @@ const IPV6_REGEX = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(([0-9a-fA-F]{1,4}:
 
 export const IP_ADDRESS_VALIDATION_ERROR_CODE = "VALIDATION_IP_ADDRESS"
 
-export const ipAddress: () => Validation<string> = () => (entry) => {
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
-    if (IPV4_REGEX.test(entry) || IPV6_REGEX.test(entry)) {
-        return Validation.success();
-    }
-    return Validation.failure(Validation.error({
-        message: "", // TODO: default message
-        attempted: entry,
-        code: IP_ADDRESS_VALIDATION_ERROR_CODE,
-    }));
-};
+export function ipAddress(): Validation<string> {
+    return (entry, entryContext) => {
+
+        const ctx = entryContext ?? Validation;
+
+        if (entry === null || entry === undefined) {
+            return ctx.success();
+        }
+
+        if (IPV4_REGEX.test(entry) || IPV6_REGEX.test(entry)) {
+            return ctx.success();
+        }
+
+        return ctx.failure({
+            message: "", // TODO: default message
+            attempted: entry,
+            code: IP_ADDRESS_VALIDATION_ERROR_CODE,
+        });
+    };
+}

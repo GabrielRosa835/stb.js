@@ -1,28 +1,28 @@
 import { Validation } from "../Validation";
 
-export const field = <T extends object, K extends keyof T>(
-    field: K,
-    validator: Validation<T[K]>,
-): Validation<T> => (entry) => {
+export function field<T extends object, K extends keyof T>(field: K, validator: Validation<T[K]>): Validation<T> {
+    return (entry, entryContext) => {
 
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
+        const ctx = entryContext ?? Validation;
 
-    const propertyValue = entry[field];
-    const result = validator(propertyValue);
+        if (entry === null || entry === undefined) {
+            return ctx.success();
+        }
 
-    if (result.isValid) {
-        return result;
-    }
+        const propertyValue = entry[field];
+        const result = validator(propertyValue, ctx);
 
-    // Map errors to build the path chain (e.g., "parent.child.grandchild")
-    const mappedErrors = result.errors.map(err => Validation.error({
-        ...err,
-        message: err.message,
-        property: err.property ? `${String(field)}.${err.property}` : String(field),
-        attempted: err.attempted !== undefined ? err.attempted : propertyValue,
-    }));
+        if (result.isValid) {
+            return result;
+        }
 
-    return Validation.failure(mappedErrors);
-};
+        // Map errors to build the path chain (e.g., "parent.child.grandchild")
+        const mappedErrors = result.errors.map(err => ({
+            ...err,
+            property: err.property ? `${String(field)}.${err.property}` : String(field),
+            attempted: err.attempted !== undefined ? err.attempted : propertyValue,
+        }));
+
+        return ctx.failure(mappedErrors);
+    };
+}

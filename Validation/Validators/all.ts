@@ -1,20 +1,26 @@
 import { Validation } from "../Validation";
 
-export const all: <T>(...validations: Validation<T>[]) => Validation<T> = (...validators) => (entry) => {
+export function all<T>(...validators: Validation<T>[]): Validation<T> {
+    return (entry, entryContext) => {
 
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
+        const ctx = entryContext ?? Validation;
 
-    const errors: Validation.Error[] = [];
-    for (const validate of validators) {
-        const result = validate(entry);
-        if (!result.isValid) {
-            errors.push(...result.errors);
+        if (entry === null || entry === undefined) {
+            return ctx.success();
         }
-    }
-    if (errors.length > 0) {
-        return Validation.failure(errors);
-    }
-    return Validation.success();
-};
+
+        const errors: Validation.Error[] = [];
+
+        for (const validate of validators) {
+            const result = validate(entry, ctx);
+            if (!result.isValid) {
+                errors.push(...result.errors);
+            }
+        }
+
+        if (errors.length > 0) {
+            return ctx.failure(errors);
+        }
+        return ctx.success();
+    };
+}

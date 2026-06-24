@@ -4,24 +4,28 @@ export const ONE_OF_VALIDATION_ERROR_CODE = "VALIDATION_ONE_OF";
 
 type EqualityComparer<T> = (left: T, right: T) => boolean;
 
-export const oneOf = <T>(allowedValues: T[], equalityComparer?: EqualityComparer<T>): Validation<T> => (entry: T) => {
+export function oneOf<T>(allowedValues: T[], comparer?: EqualityComparer<T>): Validation<T> {
+    return (entry, entryContext) => {
 
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
+        const ctx = entryContext ?? Validation;
 
-    if (equalityComparer && allowedValues.some(t => equalityComparer(entry, t))) {
-        return Validation.success();
-    }
-    if (allowedValues.includes(entry)) {
-        return Validation.success();
-    }
+        if (entry === null || entry === undefined) {
+            return ctx.success();
+        }
 
-    const defaultMsg = `O valor deve ser um dos seguintes: ${allowedValues.join(", ")}.`;
+        if (comparer && allowedValues.some(t => comparer(entry, t))) {
+            return ctx.success();
+        }
+        if (allowedValues.includes(entry)) {
+            return ctx.success();
+        }
 
-    return Validation.failure(Validation.error({
-        message: defaultMsg,
-        attempted: entry,
-        code: ONE_OF_VALIDATION_ERROR_CODE,
-    }));
-};
+        const defaultMsg = `O valor deve ser um dos seguintes: ${allowedValues.join(", ")}.`;
+
+        return ctx.failure({
+            message: defaultMsg,
+            attempted: entry,
+            code: ONE_OF_VALIDATION_ERROR_CODE,
+        });
+    };
+}

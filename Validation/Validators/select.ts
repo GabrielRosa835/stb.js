@@ -1,28 +1,33 @@
 import { Validation } from "../Validation";
 
-export const select = <T, V>(
-    accessor: (entry: T) => V,
+export function select<T, V>(
+    accessor: (entry: T) => V, 
     validator: Validation<V>,
-    pathName?: string // Optional pathing as the 'property' identifier
-): Validation<T> => (entry) => {
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
+    /** Optional pathing as the 'property' identifier */
+    pathName?: string
+): Validation<T> {
+    return (entry, entryContext) => {
 
-    const selectedValue = accessor(entry);
-    const result = validator(selectedValue);
+        const ctx = entryContext ?? Validation;
 
-    if (result.isValid) {
-        return result;
-    }
+        if (entry === null || entry === undefined) {
+            return ctx.success();
+        }
 
-    // Map errors using the provided pathName
-    const errors = result.errors.map(err => Validation.error({
-        ...err,
-        message: err.message,
-        property: pathName ? err.property ? `${pathName}.${err.property}` : pathName : undefined,
-        attempted: err.attempted !== undefined ? err.attempted : selectedValue,
-    }));
+        const selectedValue = accessor(entry);
+        const result = validator(selectedValue, ctx);
 
-    return Validation.failure(errors);
-};
+        if (result.isValid) {
+            return result;
+        }
+
+        // Map errors using the provided pathName
+        const errors = result.errors.map(err => ({
+            ...err,
+            property: pathName ? err.property ? `${pathName}.${err.property}` : pathName : undefined,
+            attempted: err.attempted !== undefined ? err.attempted : selectedValue,
+        }));
+
+        return ctx.failure(errors);
+    };
+}

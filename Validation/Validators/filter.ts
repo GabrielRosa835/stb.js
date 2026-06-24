@@ -1,23 +1,29 @@
 import { Validation } from "../Validation";
 
-export const filter = <T>(predicate: (error: Validation.Error) => boolean, ...validations: Validation<T>[]): Validation<T> => (entry) => {
+type ErrorPredicate = (value: Validation.Error, index: number, array: Validation.Error[]) => boolean;
 
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
+export function filter<T>(predicate: ErrorPredicate, ...validators: Validation<T>[]): Validation<T> {
+    return (entry, entryContext) => {
 
-    const errors: Validation.Error[] = [];
+        const ctx = entryContext ?? Validation;
 
-    for (const validate of validations) {
-        const result = validate(entry);
-        if (!result.isValid) {
-            const filteredErrors = result.errors.filter(predicate);
-            errors.push(...filteredErrors);
+        if (entry === null || entry === undefined) {
+            return ctx.success();
         }
-    }
 
-    if (errors.length > 0) {
-        return Validation.failure(errors);
-    }
-    return Validation.success();
-};
+        const errors: Validation.Error[] = [];
+
+        for (const validate of validators) {
+            const result = validate(entry, ctx);
+            if (!result.isValid) {
+                const filteredErrors = result.errors.filter(predicate);
+                errors.push(...filteredErrors);
+            }
+        }
+
+        if (errors.length > 0) {
+            return ctx.failure(errors);
+        }
+        return ctx.success();
+    };
+}

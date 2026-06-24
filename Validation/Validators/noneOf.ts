@@ -4,21 +4,28 @@ export const NONE_OF_VALIDATION_ERROR_CODE = "VALIDATION_NONE_OF";
 
 type EqualityComparer<T> = (left: T, right: T) => boolean;
 
-export const noneOf = <T>(forbiddenValues: T[], comparer?: EqualityComparer<T>): Validation<T> => (entry) => {
-    if (entry === null || entry === undefined) {
-        return Validation.success();
-    }
-    if (comparer && !forbiddenValues.some(t => comparer(entry, t))) {
-        return Validation.success();
-    }
-    if (!forbiddenValues.includes(entry)) {
-        return Validation.success();
-    }
-    const defaultMsg = `O valor não pode ser um dos seguintes: ${forbiddenValues.join(", ")}.`;
+export function noneOf<T>(forbiddenValues: T[], comparer?: EqualityComparer<T>): Validation<T> {
+    return (entry, entryContext) => {
 
-    return Validation.failure(Validation.error({
-        message: defaultMsg,
-        attempted: entry,
-        code: NONE_OF_VALIDATION_ERROR_CODE,
-    }));
-};
+        const ctx = entryContext ?? Validation;
+
+        if (entry === null || entry === undefined) {
+            return ctx.success();
+        }
+
+        if (comparer && !forbiddenValues.some(t => comparer(entry, t))) {
+            return ctx.success();
+        }
+        if (!forbiddenValues.includes(entry)) {
+            return ctx.success();
+        }
+
+        const defaultMsg = `O valor não pode ser um dos seguintes: ${forbiddenValues.join(", ")}.`;
+
+        return ctx.failure({
+            message: defaultMsg,
+            attempted: entry,
+            code: NONE_OF_VALIDATION_ERROR_CODE,
+        });
+    };
+}
