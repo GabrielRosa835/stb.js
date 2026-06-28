@@ -1,6 +1,7 @@
+import {EqualityComparer} from "../Common/EqualityComparer";
+
 export type Listener<T> = (data: T) => void;
 export type Unsubscribe = () => void;
-export type EqualityComparer<T> = (left: T, right: T) => boolean;
 
 export type ObserverOptions<T> = {
     /** * If true, acts like a BehaviorSubject. New subscribers will immediately 
@@ -20,30 +21,37 @@ export type ObserverOptions<T> = {
      * Ignored if `distinctUntilChanged` is false or undefined.
      * Defaults to `Object.is` for strict reference equality.
      */
-    equalityComparer?: EqualityComparer<T>;
+    comparer?: EqualityComparer<T>;
 };
 
 export type Observer<T> = {
+    /** 
+     * Adds a new listener for this `Observer` instance 
+     * @returns An unsubscriber function that removes the same listener the instance.
+     */
     subscribe: (listener: Listener<T>) => Unsubscribe;
+    /** Publishes some message across all listeners currently subscribed */
     notify: (data: T) => void;
+    /** Removes all currently subscribed listeners from this `Observer` instance */
     clear: () => void;
     readonly currentValue: T | undefined;
     readonly subscriberCount: number;
 };
 
 function createObserver<T>(options?: ObserverOptions<T>): Observer<T> {
-    const listeners: Set<Listener<T>> = new Set();
+    
+    const _listeners: Set<Listener<T>> = new Set();
     let _currentValue: T | undefined = options?.initialValue;
 
     // Default to strict equality if no custom comparer is provided
-    const comparer = options?.equalityComparer ?? Object.is;
+    const comparer = options?.comparer ?? Object.is;
 
     const subscribe = (listener: Listener<T>): Unsubscribe => {
-        listeners.add(listener);
+        _listeners.add(listener);
         if (options?.emitLastValueOnSubscribe && _currentValue !== undefined) {
             listener(_currentValue);
         }
-        return () => listeners.delete(listener);
+        return () => _listeners.delete(listener);
     };
 
     const notify = (data: T): void => {
@@ -52,10 +60,10 @@ function createObserver<T>(options?: ObserverOptions<T>): Observer<T> {
             return;
         }
         _currentValue = data;
-        listeners.forEach((listener) => listener(data));
+        _listeners.forEach((listener) => listener(data));
     };
 
-    const clear = (): void => listeners.clear();
+    const clear = (): void => _listeners.clear();
 
     return {
         subscribe,
@@ -65,7 +73,7 @@ function createObserver<T>(options?: ObserverOptions<T>): Observer<T> {
             return _currentValue;
         },
         get subscriberCount() {
-            return listeners.size;
+            return _listeners.size;
         }
     };
 }

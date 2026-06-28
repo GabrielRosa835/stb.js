@@ -1,11 +1,11 @@
-export type Entry<K extends string = string, V = unknown> = {
+export type ResourceEntry<K extends string = string, V = unknown> = {
   [P in K]: Record<P, V> & {
     [Q in Exclude<K, P>]?: never;
   };
 }[K];
 
-export const Entry = {
-    getKey: function <K extends string, V>(entry: Entry<K, V>): K {
+export const ResourceEntry = {
+    getKey: function <K extends string, V>(entry: ResourceEntry<K, V>): K {
         return Object.keys(entry)[0] as K;
     }
 };
@@ -16,8 +16,8 @@ export type ResourceManagerConfigurationOptions<
     TDefault extends TNamespaces,
     TFallback extends TNamespaces,
 > = {
-    default: Entry<TDefault, TSchema>;
-    fallback?: Entry<TFallback, Partial<TSchema>>;
+    default: ResourceEntry<TDefault, TSchema>;
+    fallback?: ResourceEntry<TFallback, Partial<TSchema>>;
     others?: Record<Exclude<TNamespaces, TDefault | TFallback>, Partial<TSchema>>;
     onNamespaceChange?: (namespace: TNamespaces) => void;
 }
@@ -64,7 +64,7 @@ function configureResourceManager<
     TFallback extends TNamespaces,
 >(configurationOptions: ResourceManagerConfigurationOptions<TSchema, TNamespaces, TDefault, TFallback>) {
     
-    let currentNamespace: TNamespaces = Entry.getKey(configurationOptions.default);
+    let currentNamespace: TNamespaces = ResourceEntry.getKey(configurationOptions.default);
     type OtherNamespaces = Exclude<TNamespaces, TDefault | TFallback>;
 
     /**
@@ -82,13 +82,13 @@ function configureResourceManager<
                 }
 
                 const fallbackValue = configurationOptions.fallback 
-                    ? configurationOptions.fallback[Entry.getKey(configurationOptions.fallback)][key] 
+                    ? configurationOptions.fallback[ResourceEntry.getKey(configurationOptions.fallback)][key] 
                     : undefined;
                 if (fallbackValue !== undefined) {
                     return fallbackValue;
                 }
 
-                return configurationOptions.default[Entry.getKey(configurationOptions.default)]![key];
+                return configurationOptions.default[ResourceEntry.getKey(configurationOptions.default)]![key];
             },
             
             setNamespace: (namespace: TNamespaces) => {
@@ -124,8 +124,8 @@ function defineSchema<TSchema>() {
         TFallback extends string = never,
         TOthers extends string = never
     >(config: {
-        default: Entry<TDefault, TSchema>;
-        fallback?: Entry<TFallback, Partial<TSchema>>;
+        default: ResourceEntry<TDefault, TSchema>;
+        fallback?: ResourceEntry<TFallback, Partial<TSchema>>;
         others?: Record<TOthers, Partial<TSchema>>;
     }): ResourceManagerConfigurationOptions<TSchema, TDefault | TFallback | TOthers, TDefault, TFallback> {
         return config as any; 
@@ -138,8 +138,8 @@ function defineResources<
     TFallback extends string = never,
     TOthers extends string = never
 >(config: {
-    default: Entry<TDefault, TSchema>;
-    fallback?: Entry<TFallback, Partial<TSchema>>;
+    default: ResourceEntry<TDefault, TSchema>;
+    fallback?: ResourceEntry<TFallback, Partial<TSchema>>;
     others?: Record<TOthers, Partial<TSchema>>;
 }): ResourceManagerConfigurationOptions<TSchema, TDefault | TFallback | TOthers, TDefault, TFallback> {
     return config as any; 

@@ -19,7 +19,7 @@ export type HttpOptions = {
      */
     responseHandler?: (response: Response) => Promise<any>;
     /** Standard fetch RequestInit options (e.g., headers, mode, credentials). */
-    requestOptions?: RequestInit;
+    init?: RequestInit;
 };
 
 /** Options applied at the root Application level. */
@@ -74,7 +74,7 @@ function configureHttpClient(configurationOptions: HttpClientConfigurationOption
     if (configurationOptions.baseUrl || configurationOptions.baseUrl.trim() === "") {
         throw new Error("A baseUrl is required to send requests.");
     }
-    
+
     async function defaultResponseHandler(response: Response): Promise<any> {
         if (!response.ok) {
             throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
@@ -83,18 +83,18 @@ function configureHttpClient(configurationOptions: HttpClientConfigurationOption
         const text = await response.text();
         return text ? JSON.parse(text) : null;
     }
-    
+
     // Merge App Level and Context Level (Context wins)
     const mergeOptions = (appConfig: HttpClientConfigurationOptions) => (ctxConfig?: HttpClientOptions) => ({
         requestInterceptor: ctxConfig?.requestInterceptor ?? appConfig?.requestInterceptor,
         responseInterceptor: ctxConfig?.responseInterceptor ?? appConfig?.responseInterceptor,
         responseHandler: ctxConfig?.responseHandler ?? appConfig?.responseHandler,
         requestOptions: {
-            ...appConfig?.requestOptions,
-            ...ctxConfig?.requestOptions,
+            ...appConfig?.init,
+            ...ctxConfig?.init,
             headers: {
-                ...appConfig?.requestOptions?.headers,
-                ...ctxConfig?.requestOptions?.headers,
+                ...appConfig?.init?.headers,
+                ...ctxConfig?.init?.headers,
             }
         }
     });
@@ -106,16 +106,16 @@ function configureHttpClient(configurationOptions: HttpClientConfigurationOption
             responseInterceptor: reqOptions?.responseInterceptor ?? ctxConfig?.responseInterceptor,
             responseHandler: reqOptions?.responseHandler ?? ctxConfig?.responseHandler ?? defaultResponseHandler,
             requestOptions: {
-                ...ctxConfig?.requestOptions,
-                ...reqOptions?.requestOptions,
+                ...ctxConfig?.init,
+                ...reqOptions?.init,
                 headers: {
-                    ...ctxConfig?.requestOptions?.headers,
-                    ...reqOptions?.requestOptions?.headers,
+                    ...ctxConfig?.init?.headers,
+                    ...reqOptions?.init?.headers,
                 }
             }
         };
     };
-    
+
     /**
      * Level 2: Context (Factory)
      * 
@@ -157,7 +157,7 @@ function configureHttpClient(configurationOptions: HttpClientConfigurationOption
             const url = `${baseUrl}${controller}${path}`;
 
             const headers = new Headers(config.requestOptions?.headers);
-            
+
             // Auto-inject JSON content type if sending a body
             if (body && !headers.has('Content-Type')) {
                 headers.set('Content-Type', 'application/json');

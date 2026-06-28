@@ -1,8 +1,7 @@
 import { Validation } from "../Validation";
+import { EqualityComparer } from "../../Common/EqualityComparer";
 
 export const NONE_OF_VALIDATION_ERROR_CODE = "VALIDATION_NONE_OF";
-
-type EqualityComparer<T> = (left: T, right: T) => boolean;
 
 export function noneOf<T>(forbiddenValues: T[], comparer?: EqualityComparer<T>): Validation<T> {
     return (entry, entryContext) => {

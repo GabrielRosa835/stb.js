@@ -1,6 +1,6 @@
 import { Validation } from "../Validation";
 
-type ErrorPredicate = (value: Validation.Error, index: number, array: Validation.Error[]) => boolean;
+type ErrorPredicate = (value: Validation.Error, index?: number, array?: Validation.Error[]) => boolean;
 
 export function filter<T>(predicate: ErrorPredicate, ...validators: Validation<T>[]): Validation<T> {
     return (entry, entryContext) => {

@@ -15,7 +15,7 @@ import {
     select,
 } from "./Validators";
 
-export type ValidatorComplement = {
+type ValidatorComplement = {
     readonly CODE: string;
 }
 

@@ -1,0 +1,1 @@
+export type EqualityComparer<T> = (left: T, right: T) => boolean;

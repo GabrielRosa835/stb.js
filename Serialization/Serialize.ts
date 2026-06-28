@@ -37,7 +37,7 @@ function useTimeAsISO (this: Date): Serializable {
     const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${milliseconds}`;
 
     return result; 
-},
+};
 
 export const Serialize = {
     date: {

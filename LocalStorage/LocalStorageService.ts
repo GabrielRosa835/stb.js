@@ -1,10 +1,4 @@
-export type Serializable = 
-  | string 
-  | number 
-  | boolean 
-  | null 
-  | { [key: string]: Serializable } 
-  | Serializable[];
+import { Serializable } from '../Common/Serializable';
 
 /**
  * Tipo utilitário (branded type) que representa uma chave do local-storage.
@@ -43,7 +37,7 @@ function configureLocalStorageService<TAppKeys extends Record<string, StorageKey
     if (typeof window === "undefined") {
         throw new Error("Cannot use localStorage outside a browser");
     }
-    
+
     // Level 2: Context (Factory)
     return function createService<TContextKeys extends Record<string, StorageKey<Serializable>> = {}>(
         serviceOptions?: LocalStorageServiceOptions<TContextKeys>

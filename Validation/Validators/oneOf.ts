@@ -1,8 +1,7 @@
 import { Validation } from "../Validation";
+import { EqualityComparer } from "../../Common/EqualityComparer";
 
 export const ONE_OF_VALIDATION_ERROR_CODE = "VALIDATION_ONE_OF";
-
-type EqualityComparer<T> = (left: T, right: T) => boolean;
 
 export function oneOf<T>(allowedValues: T[], comparer?: EqualityComparer<T>): Validation<T> {
     return (entry, entryContext) => {

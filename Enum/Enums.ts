@@ -1,12 +1,14 @@
+import { EqualityComparer } from '../Common/EqualityComparer';
+
 /**
  * A type that cannot have inner fields and are compared by value
  */
-export type PrimitiveTypes = number | string | undefined | null | bigint | boolean | symbol;
+export type PrimitiveType = number | string | undefined | null | bigint | boolean | symbol;
 
 /**
  * A type that can have inner fields and are compared by reference
  */
-export type NonPrimitiveTypes = object | { [key: string]: unknown } | unknown[] | Function;
+export type NonPrimitiveType = object | { [key: string]: unknown } | unknown[] | Function;
 
 type EnumComplement<Type extends string, Base = unknown> = {
     __type: Type,
@@ -14,12 +16,12 @@ type EnumComplement<Type extends string, Base = unknown> = {
     __base?: Base;
 }
 
-type PrimitiveEnum<T extends PrimitiveTypes, Type extends string> = T & EnumComplement<Type, T>;
+type PrimitiveEnum<T extends PrimitiveType, Type extends string> = T & EnumComplement<Type, T>;
 
-type NonPrimitiveEnum<T extends NonPrimitiveTypes, Type extends string> = T & EnumComplement<Type, T>;
+type NonPrimitiveEnum<T extends NonPrimitiveType, Type extends string> = T & EnumComplement<Type, T>;
 
 function npTransform<
-    T extends NonPrimitiveTypes,
+    T extends NonPrimitiveType,
     Type extends string,
     E extends NonPrimitiveEnum<T, Type>
 >(value: T, name: string, key: Type): E {
@@ -30,8 +32,8 @@ function npTransform<
 }
 
 function npDisplayFactory<
-    T extends NonPrimitiveTypes, 
-    Type extends string, 
+    T extends NonPrimitiveType,
+    Type extends string,
     E extends NonPrimitiveEnum<T, Type>
 >(): (e: E) => string {
     return function (e: E) {
@@ -40,13 +42,13 @@ function npDisplayFactory<
 }
 
 function npParseFactory<
-    T extends NonPrimitiveTypes,
+    T extends NonPrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends NonPrimitiveEnum<T, Type>
->(values: Values, key: Type, equalityComparer: (v1: T, v2: T) => boolean): (v: T) => E {
+>(values: Values, key: Type, comparer: EqualityComparer<T>): (v: T) => E {
     return function (value: T): E {
-        const entry = Object.entries(values).find(([k, v]) => equalityComparer(value, v));
+        const entry = Object.entries(values).find(([k, v]) => comparer(value, v));
         if (!entry) {
             throw new Error("Cannot parse value");
         }
@@ -55,7 +57,7 @@ function npParseFactory<
 }
 
 function npSpreadFactory<
-    T extends NonPrimitiveTypes,
+    T extends NonPrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends NonPrimitiveEnum<T, Type>
@@ -66,7 +68,7 @@ function npSpreadFactory<
 }
 
 function npValuesFactory<
-    T extends NonPrimitiveTypes,
+    T extends NonPrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends NonPrimitiveEnum<T, Type>
@@ -75,16 +77,16 @@ function npValuesFactory<
 }
 
 function npDefine<
-    T extends NonPrimitiveTypes,
+    T extends NonPrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends NonPrimitiveEnum<T, Type>
->(values: Values, key: Type, equalityComparer: (v1: T, v2: T) => boolean, customDisplay?: (e: E) => string) {
+>(values: Values, key: Type, comparer: EqualityComparer<T>, customDisplay?: (e: E) => string) {
     const display = customDisplay ?? npDisplayFactory<T, Type, E>();
     return {
         ...npSpreadFactory<T, Values, Type, E>(values, key),
         values: npValuesFactory<T, Values, Type, E>(values, key),
-        parse: npParseFactory<T, Values, Type, E>(values, key, equalityComparer),
+        parse: npParseFactory<T, Values, Type, E>(values, key, comparer),
         display: display,
     };
 }
@@ -96,9 +98,9 @@ function pCast<T>(value: any): T {
 }
 
 function pDisplayFactory<
-    T extends PrimitiveTypes, 
-    Values extends Record<string, T>, 
-    Type extends string, 
+    T extends PrimitiveType,
+    Values extends Record<string, T>,
+    Type extends string,
     E extends PrimitiveEnum<T, Type>
 >(values: Values): (e: E) => string {
     return function (e: E) {
@@ -107,7 +109,7 @@ function pDisplayFactory<
 }
 
 function pParseFactory<
-    T extends PrimitiveTypes,
+    T extends PrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends PrimitiveEnum<T, Type>
@@ -122,18 +124,18 @@ function pParseFactory<
 }
 
 function pSpreadFactory<
-    T extends PrimitiveTypes,
+    T extends PrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends PrimitiveEnum<T, Type>
->(values: Values): { [K in keyof Values]: E } {
+>(values: Values): { [K in keyof Values]: T } {
     const obj: any = {};
     Object.entries(values).forEach(([k, v]) => obj[k] = pCast<E>(v));
     return obj;
 }
 
 function pValuesFactory<
-    T extends PrimitiveTypes,
+    T extends PrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends PrimitiveEnum<T, Type>
@@ -142,7 +144,7 @@ function pValuesFactory<
 }
 
 function pDefine<
-    T extends PrimitiveTypes,
+    T extends PrimitiveType,
     Values extends Record<string, T>,
     Type extends string,
     E extends PrimitiveEnum<T, Type>
@@ -163,20 +165,22 @@ const NonPrimitiveEnum = { define: npDefine };
 export namespace Enum {
 
     export const Primitive = PrimitiveEnum;
+
     export type Primitive<
-        T extends PrimitiveTypes, 
+        T extends PrimitiveType,
         Type extends string
     > = PrimitiveEnum<T, Type>;
 
-    export const Complex = NonPrimitiveEnum;
-    export type Complex<
-        T extends NonPrimitiveTypes,
+    export const NonPrimitive = NonPrimitiveEnum;
+    
+    export type NonPrimitive<
+        T extends NonPrimitiveType,
         Type extends string,
     > = NonPrimitiveEnum<T, Type>;
 
     export type Complement<Type extends string> = EnumComplement<Type>;
 
-    export type Values<TEnum> = TEnum extends EnumComplement<any, infer Base> 
-        ? Record<string, Base> 
+    export type Values<TEnum> = TEnum extends EnumComplement<any, infer Base>
+        ? Record<string, Base>
         : never;
 }
