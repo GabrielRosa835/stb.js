@@ -1,9 +1,9 @@
 export type Validation<T> = (entry: T, context?: Validation.Context) => Validation.Result;
 
 export namespace Validation {
-
+    
     export type ErrorLike = string | ErrorDefinition | Error;
-
+    
     export type ErrorDefinition = {
         message: string;
         property?: string;
@@ -12,39 +12,44 @@ export namespace Validation {
         state?: any;
         severity?: Severity;
     }
-
+    
     export type Error = {
         /** The error message */
-        message: string;
+        readonly message: string;
         /** The name of the property */
-        property?: string;
+        readonly property?: string;
         /** The property value that caused the failure */
-        attempted?: unknown;
+        readonly attempted?: unknown;
         /** Custom state associated with the failure */
-        state?: unknown;
+        readonly state?: unknown;
         /** Custom severity level associated with the failure */
-        severity: Severity;
+        readonly severity: Severity;
         /** The code that uniquely identifies the error type */
-        code?: string;
+        readonly code?: string;
     }
-
+    
     export type Result = {
-        errors: Error[];
-        isValid: boolean;
+        readonly errors: Error[];
+        readonly isValid: boolean;
     }
-
+    
     export type Severity = "error" | "warning" | "info";
-
+    
     export type MessageFormatter = (error: Error) => string | void;
     export type ErrorInterceptor = (error: Error) => Error | void;
     export type ResultInterceptor = (error: Result) => Result | void;
-
+    
     export type Unsubscriber = () => void;
+
+    interface CreateFailureOverloads {
+        failure(error: ErrorLike, ...errors: ErrorLike[]): Result;
+        failure(errors: ErrorLike[]): Result;
+    }
 
     /**
      * The pipeline should always be 'message formatter' -> 'error interceptor' -> 'result interceptor'
      */
-    export type Context = {
+    export type Context = CreateFailureOverloads & {
         /** User defined state to allow identifying and managing multiple contexts */
         readonly state: unknown;
 
@@ -56,7 +61,6 @@ export namespace Validation {
         readonly errorFor: (error: Error) => Error;
         readonly resultFor: (error: Result) => Result;
 
-        readonly failure: (error: ErrorLike | ErrorLike[], ...errors: ErrorLike[]) => Result;
         readonly success: () => Result;
         readonly error: (def: ErrorDefinition | string) => Error
     }
@@ -84,7 +88,7 @@ const createContext = (state: unknown): Validation.Context => {
     function messageFor(error: Validation.Error): string {
         for (const formatter of _formatters) {
             const msg = formatter(error);
-            if (msg !== undefined) {
+            if (msg !== undefined && msg !== null) {
                 return msg;
             }
         }
@@ -93,7 +97,7 @@ const createContext = (state: unknown): Validation.Context => {
     function errorFor(error: Validation.Error): Validation.Error {
         for (const interceptor of _errorInterceptors) {
             const intercepted = interceptor(error);
-            if (intercepted !== undefined) {
+            if (intercepted !== undefined && intercepted !== null) {
                 return intercepted;
             }
         }
@@ -102,42 +106,46 @@ const createContext = (state: unknown): Validation.Context => {
     function resultFor(result: Validation.Result): Validation.Result {
         for (const interceptor of _resultInterceptors) {
             const intercepted = interceptor(result);
-            if (intercepted !== undefined) {
+            if (intercepted !== undefined && intercepted !== null) {
                 return intercepted;
             }
         }
         return result;
     }
 
+    function createResult(errors: Validation.Error[]): Validation.Result {
+        return resultFor({
+            errors,
+            get isValid() { return errors.length > 0; }
+        });
+    }
+
     function createFailure(error: Validation.ErrorLike | Validation.ErrorLike[], ...errors: Validation.ErrorLike[]): Validation.Result {
 
-        const outErrors: Validation.ErrorLike[] = [];
+        const allErrors: Validation.ErrorLike[] = [];
 
-        if (!Array.isArray(error)) {
-            outErrors.push(error);
-        }
-        else {
+        if (Array.isArray(error)) {
             // TODO: Verify this constraint
             if (error.length === 0) {
                 throw new Error("Cannot create a failed validation result without errors");
             }
-            outErrors.push(...error);
+            allErrors.push(...error);
+        }
+        else {
+            allErrors.push(error);
         }
 
-        outErrors.push(...errors);
+        allErrors.push(...errors);
 
-        return {
-            isValid: false,
-            errors: outErrors.map(createError),
-        };
+        return createResult(allErrors.map(createError));
     }
 
     function createSuccess(): Validation.Result {
-        return resultFor({ errors: [], isValid: true });
+        return createResult([]);
     };
 
     function createError(def: Validation.ErrorLike): Validation.Error {
-        const base: Validation.Error = {
+        const base: Validation.ErrorDefinition = {
             message: "",
             severity: "error",
         };
@@ -152,8 +160,8 @@ const createContext = (state: unknown): Validation.Context => {
             base.code = def.code;
             base.severity = def.severity ?? base.severity;
         }
-        base.message = messageFor(base);
-        return errorFor(base);
+        base.message = messageFor(base as Validation.Error);
+        return errorFor(base as Validation.Error);
     };
 
     return {
