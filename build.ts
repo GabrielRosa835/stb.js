@@ -1,11 +1,11 @@
-import { existsSync, readdirSync, readFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import * as Files from "node:fs";
 import { join } from "node:path";
 
 console.log("📦 [stb.js bundler] Starting build process...");
 
 function appendComponent(filePath: string) {
   console.log(`📄 [stb.js bundler] Reading: ${filePath}`);
-  const content = readFileSync(filePath, "utf-8");
+  const content = Files.readFileSync(filePath, "utf-8");
   bundledCode += content + "\n\n\n\n";
 }
 
@@ -18,14 +18,16 @@ const files = [];
 //      SETUP      //
 //-----------------//
 
-if (!existsSync(distDir)) {
-  mkdirSync(distDir);
+if (!Files.existsSync(distDir)) {
+  Files.mkdirSync(distDir);
   console.log(`📁 [stb.js bundler] Created ${distDir} directory.`);
 }
-if (existsSync(outFile)) {
-  rmSync(outFile);
+if (Files.existsSync(outFile)) {
+  Files.rmSync(outFile);
   console.log(`🗑️  [stb.js bundler] Removed previous build artifact.`);
 }
+
+
 
 //--------------------//
 //    ADDING FILES    //
@@ -38,7 +40,7 @@ files.push("Global/GlobalUtilities.ts");
 
 files.push("Validation/Validation.ts");
 
-for (const file of readdirSync("Validation/Validators")) {
+for (const file of Files.readdirSync("Validation/Validators")) {
   if (file === "index.ts") continue;
   files.push(join("Validation/Validators", file));
 }
@@ -92,5 +94,5 @@ const strippedBytes = initialLength - bundledCode.length;
 
 console.log(`✂️  [stb.js bundler] Removed imports (freed approx ${strippedBytes} bytes).`);
 
-writeFileSync(outFile, bundledCode.trim() + "\n");
+Files.writeFileSync(outFile, bundledCode.trim() + "\n");
 console.log(`✅ [stb.js bundler] Build complete! Saved to ${outFile}`);
