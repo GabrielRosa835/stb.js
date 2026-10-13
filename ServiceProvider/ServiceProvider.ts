@@ -1,231 +1,502 @@
-/**
- * Defines the lifecycle policy of a service within the DI container.
- * - `singleton`: Instantiated once per container definition (shared globally across all scopes).
- * - `scoped`: Instantiated once per `ServiceProvider` instance (shared locally within a scope).
- * - `transient`: Instantiated every time it is resolved (never cached).
- */
-export type ServiceLifetime = 'singleton' | 'transient' | 'scoped';
+import { AsyncDisposable } from "../common/AsyncDisposable";
+import { Disposable } from "../common/Disposable";
+import { ServiceDescriptor } from "./ServiceDescriptor";
+import { KeyedServiceFactory, ServiceFactory } from "./ServiceFactory";
+import { ServiceKey } from "./ServiceKey";
+import { ServiceScope } from "./ServiceScope";
+import { ServiceScopeFactory } from "./ServiceScopeFactory";
+import { ServiceType } from "./ServiceType";
 
 /**
- * A branded string type representing a unique key for a service, retaining its underlying type definition.
- * @template T The expected type of the resolved service.
+ * The core service resolution interface responsible for locating and instantiating dependencies.
  */
-export type ServiceKey<T> = string & { __type: T };
-
-export type ServicesDefinition = Record<ServiceKey<unknown>, unknown>;
-
-/**
- * Describes how a service should be created and managed by the container.
- * * @template T The type of the service.
- */
-export type ServiceDescriptor<T, TDefinition extends ServicesDefinition> = {
-    /** The lifecycle rule governing the service's caching behavior. */
-    lifetime: ServiceLifetime;
-    /** The factory function responsible for instantiating the service. */
-    factory: (sp: ServiceProvider<TDefinition>) => T;
-};
-
-/**
- * A registry mapping service names (keys) to their corresponding descriptors.
- * * @template TDefinition A record defining the contract of all available services.
- */
-export type ServiceRegistry<TDefinition extends ServicesDefinition> = {
-    [K in keyof TDefinition]: ServiceDescriptor<TDefinition[K], TDefinition>;
-};
-
-/**
- * The core container interface responsible for resolving registered services.
- */
-export type ServiceProvider<TDefinition extends ServicesDefinition> = TDefinition & {
-    /**
-     * Resolves a service by its key. Throws an error if the service is not found.
-     * @template T The expected return type of the service.
-     * @param {ServiceKey<T> | string} key The key identifying the service.
-     * @returns {T} The resolved service instance.
-     * @throws {Error} If the service is not registered or if a circular dependency is detected.
-     */
-    resolve: <T>(key: ServiceKey<T> | string) => T;
+export type ServiceProvider = {
 
     /**
-     * Attempts to resolve a service by its key. Returns null if not found.
-     * @template T The expected return type of the service.
-     * @param {ServiceKey<T> | string} key The key identifying the service.
-     * @returns {T | null} The resolved service instance, or null if unregistered.
-     * @throws {Error} If a circular dependency is detected during resolution.
+     * Resolves all registered implementations of a given service type.
+     * Returns an empty array if no implementations are registered.
+     *
+     * @template T The service contract type.
+     * @param type The service type token.
+     * @returns An array containing all resolved service instances in order of registration.
      */
-    locate: <T>(key: ServiceKey<T> | string) => T | null;
-}
+    getAll<T>(type: ServiceType<T>): T[];
 
-
-/**
- * A fluent builder interface for configuring a ServiceProvider, inspired by .NET's IServiceCollection.
- * 
- * It incrementally builds the service map type (TMap) as services are registered, ensuring strict type safety.
- * 
- * **NOTE:** Due to the way the Map type accumulates Records, you may only retrieve services in factories that have already been 
- * registered. Not only that but the ending type may be quite clutered if you have lots of anonymous (untyped) services. 
- * Use the manually defined TMap approach if you prefer something cleaner or unordered registration support.
- * @template TMap The accumulated record of services registered so far.
- */
-export type ServiceCollection<TMap extends Record<ServiceKey<unknown>, unknown> = {}> = {
     /**
-     * Registers a service with a 'singleton' lifetime.
-     * @param key The string identifier for the service.
-     * @param factory The factory function. The injected provider knows about all previously registered services.
+     * Attempts to resolve a keyed service.
+     *
+     * @template T The service contract type.
+     * @param type The service type token.
+     * @param key The discriminator key.
+     * @returns The resolved service instance, or `null` if not registered.
      */
-    addSingleton<K extends keyof TMap, T>(
-        key: K, 
-        factory: (sp: ServiceProvider<TMap>) => T
-    ): ServiceCollection<TMap>;
+    findKeyed<T>(type: ServiceType<T>, key: ServiceKey): T | null;
+
+    /**
+     * Resolves a required keyed service. Throws if not registered.
+     *
+     * @template T The service contract type.
+     * @param type The service type token.
+     * @param key The discriminator key.
+     * @returns The resolved service instance.
+     * @throws {Error} If the keyed service is not registered.
+     */
+    getKeyed<T>(type: ServiceType<T>, key: ServiceKey): T;
+
+    /**
+     * Returns a `KeyedServiceProvider` view where all resolutions default to using the specified key.
+     *
+     * @param key The discriminator key to bind to the view.
+     * @returns A keyed service provider view.
+     */
+    withKey(key: ServiceKey): KeyedServiceProvider;
+
+    /**
+     * Attempts to resolve a service. Returns `null` if not registered.
+     *
+     * @template T The service contract type.
+     * @param type The service type token.
+     * @returns The resolved service instance, or `null`.
+     */
+    find<T>(type: ServiceType<T>): T | null;
+
+    /**
+     * Attempts to resolve 2 services simultaneously as a positional tuple.
+     *
+     * @returns A tuple of resolved instances, where missing services are `null`.
+     */
+    find<T1, T2>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>)
+        : [T1 | null, T2 | null];
+
+    /** Attempts to resolve 3 services simultaneously as a positional tuple. */
+    find<T1, T2, T3>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>)
+        : [T1 | null, T2 | null, T3 | null];
+
+    /** Attempts to resolve 4 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null];
+
+    /** Attempts to resolve 5 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4, T5>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null];
+
+    /** Attempts to resolve 6 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4, T5, T6>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null];
+
+    /** Attempts to resolve 7 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4, T5, T6, T7>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null];
+
+    /** Attempts to resolve 8 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4, T5, T6, T7, T8>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>,
+        type8: ServiceType<T8>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null, T8 | null];
+
+    /** Attempts to resolve 9 services simultaneously as a positional tuple. */
+    find<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>,
+        type8: ServiceType<T8>,
+        type9: ServiceType<T9>)
+        : [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null, T8 | null, T9 | null];
     
     /**
-     * Registers a service with a 'scoped' lifetime.
-     * @param key The string identifier for the service.
-     * @param factory The factory function.
+     * Resolves a required service. Throws if not registered.
+     *
+     * @template T The service contract type.
+     * @param type The service type token.
+     * @returns The resolved service instance.
+     * @throws {Error} If the service is not registered.
      */
-    addScoped<K extends keyof TMap, T>(
-        key: K, 
-        factory: (sp: ServiceProvider<TMap>) => T
-    ): ServiceCollection<TMap>;
+    get<T>(type: ServiceType<T>): T;
 
     /**
-     * Registers a service with a 'transient' lifetime.
-     * @param key The string identifier for the service.
-     * @param factory The factory function.
+     * Resolves 2 required services simultaneously as a positional tuple.
+     *
+     * @returns A strongly-typed tuple containing both resolved services.
+     * @throws {Error} If any of the services are not registered.
      */
-    addTransient<K extends keyof TMap, T>(
-        key: K, 
-        factory: (sp: ServiceProvider<TMap>) => T
-    ): ServiceCollection<TMap>;
+    get<T1, T2>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>)
+        : [T1, T2];
 
-    /**
-     * Compiles the registered services into a functional container factory.
-     * @returns A factory function that generates containers (`MapServiceProvider`).
-     */
-    build(): () => ServiceProvider<TMap>;
-}
+    /** Resolves 3 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>)
+        : [T1, T2, T3];
+
+    /** Resolves 4 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>)
+        : [T1, T2, T3, T4];
+
+    /** Resolves 5 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4, T5>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>)
+        : [T1, T2, T3, T4, T5];
+
+    /** Resolves 6 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4, T5, T6>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>)
+        : [T1, T2, T3, T4, T5, T6];
+
+    /** Resolves 7 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4, T5, T6, T7>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>)
+        : [T1, T2, T3, T4, T5, T6, T7];
+
+    /** Resolves 8 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4, T5, T6, T7, T8>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>,
+        type8: ServiceType<T8>)
+        : [T1, T2, T3, T4, T5, T6, T7, T8];
+
+    /** Resolves 9 required services simultaneously as a positional tuple. */
+    get<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+        type1: ServiceType<T1>,
+        type2: ServiceType<T2>,
+        type3: ServiceType<T3>,
+        type4: ServiceType<T4>,
+        type5: ServiceType<T5>,
+        type6: ServiceType<T6>,
+        type7: ServiceType<T7>,
+        type8: ServiceType<T8>,
+        type9: ServiceType<T9>)
+        : [T1, T2, T3, T4, T5, T6, T7, T8, T9];
+};
 
 /**
- * Defines and configures a new functional Service Container.
- * This function utilizes closures to maintain a global singleton cache shared across all created scopes.
- * @template TDefinition A record defining the available services and their types.
- * @param {ServiceRegistry<TDefinition>} services The registry of configured service descriptors.
- * @returns {() => MapServiceProvider<TDefinition>} A factory function. Invoking this function creates a new `ServiceProvider` instance (a new scope).
+ * A `ServiceProvider` view bound to a specific `ServiceKey`.
+ * Calls to `find` and `get` resolve implementations registered with this key.
  */
-function configureServiceContainer<TDefinition extends ServicesDefinition>(
-    services: ServiceRegistry<TDefinition>
-): () => ServiceProvider<TDefinition> {
+export type KeyedServiceProvider = {
 
-    // Global to ALL providers
-    const singletonCache = {} as Record<string, unknown>;
+    /** Resolves all registered implementations matching this key. */
+    getAll<T>(type: ServiceType<T>): T[];
 
-    // Calling this creates a new Scope
-    return function createProvider(): ServiceProvider<TDefinition> {
-        const resolutionStack = new Set<string>(); 
-        
-        // Local to THIS specific provider
-        const scopedCache = {} as Record<string, unknown>; 
-        
-        const provider: ServiceProvider<TDefinition> = {
-            locate: <T>(key: ServiceKey<T> | string): T | null => {
-                const typedKey = key as string;
-                const descriptor = services[typedKey as keyof TDefinition];
-                
-                if (!descriptor) return null;
+    /** Attempts to resolve a service with the bound key. Returns `null` if not found. */
+    find<T>(type: ServiceType<T>): T | null;
+    find<T1, T2>(type1: ServiceType<T1>, type2: ServiceType<T2>): [T1 | null, T2 | null];
+    find<T1, T2, T3>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>): [T1 | null, T2 | null, T3 | null];
+    find<T1, T2, T3, T4>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>): [T1 | null, T2 | null, T3 | null, T4 | null];
+    find<T1, T2, T3, T4, T5>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>): [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null];
+    find<T1, T2, T3, T4, T5, T6>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>): [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null];
+    find<T1, T2, T3, T4, T5, T6, T7>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>): [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null];
+    find<T1, T2, T3, T4, T5, T6, T7, T8>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>, type8: ServiceType<T8>): [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null, T8 | null];
+    find<T1, T2, T3, T4, T5, T6, T7, T8, T9>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>, type8: ServiceType<T8>, type9: ServiceType<T9>): [T1 | null, T2 | null, T3 | null, T4 | null, T5 | null, T6 | null, T7 | null, T8 | null, T9 | null];
+    
+    /** Resolves a required service with the bound key. Throws if not found. */
+    get<T>(type: ServiceType<T>): T;
+    get<T1, T2>(type1: ServiceType<T1>, type2: ServiceType<T2>): [T1, T2];
+    get<T1, T2, T3>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>): [T1, T2, T3];
+    get<T1, T2, T3, T4>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>): [T1, T2, T3, T4];
+    get<T1, T2, T3, T4, T5>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>): [T1, T2, T3, T4, T5];
+    get<T1, T2, T3, T4, T5, T6>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>): [T1, T2, T3, T4, T5, T6];
+    get<T1, T2, T3, T4, T5, T6, T7>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>): [T1, T2, T3, T4, T5, T6, T7];
+    get<T1, T2, T3, T4, T5, T6, T7, T8>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>, type8: ServiceType<T8>): [T1, T2, T3, T4, T5, T6, T7, T8];
+    get<T1, T2, T3, T4, T5, T6, T7, T8, T9>(type1: ServiceType<T1>, type2: ServiceType<T2>, type3: ServiceType<T3>, type4: ServiceType<T4>, type5: ServiceType<T5>, type6: ServiceType<T6>, type7: ServiceType<T7>, type8: ServiceType<T8>, type9: ServiceType<T9>): [T1, T2, T3, T4, T5, T6, T7, T8, T9];
+};
 
-                if (resolutionStack.has(typedKey)) {
-                    throw new Error(`Circular dependency detected: ${Array.from(resolutionStack).join(' -> ')} -> ${typedKey}`);
-                }
+function formatService(type: ServiceType<any>, key?: ServiceKey | null): string {
+    const meta = ServiceType.metadata(type);
+    const name = meta?.name ?? type.description ?? "UnknownService";
+    const mod = meta?.module ? ` in [${meta.module}]` : "";
+    const keyStr = key ? ` (keyed: '${key}')` : "";
+    return `'${name}'${keyStr}${mod}`;
+}
 
-                const instantiate = () => {
-                    resolutionStack.add(typedKey);
-                    const created = descriptor.factory(proxyProvider); 
-                    resolutionStack.delete(typedKey);
-                    return created as T;
-                };
+function createProvider(descriptors: ServiceDescriptor<unknown>[]): ServiceProvider {
 
-                // 1. SINGLETON: Check the global cache
-                if (descriptor.lifetime === "singleton") {
-                    if (singletonCache[typedKey]) {
-                        return singletonCache[typedKey] as T;
+    function createScope(isRoot: boolean): ServiceScope {
+
+        const _descriptors = descriptors;
+        const _resolutionStack = new Set<string>();
+        const _scopedCache = new Map<ServiceDescriptor<unknown>, unknown>();
+        const _scopedInstances: unknown[] = [];
+
+        let scopeInstance: ServiceScope;
+
+        const _serviceScopeFactoryInstance: ServiceScopeFactory = {
+            createScope: () => createScope(false),
+        };
+
+        function findDescriptor<T>(typeId: symbol, key?: ServiceKey | null): ServiceDescriptor<T> | null {
+            if (key !== undefined && key !== null) {
+                for (let i = _descriptors.length - 1; i >= 0; i--) {
+                    const d = _descriptors[i];
+                    if (d.type === typeId && d.key === key) {
+                        return d as ServiceDescriptor<T>;
                     }
-                    
-                    const created = instantiate();
-                    singletonCache[typedKey] = created;
-                    return created;
                 }
-
-                // 2. SCOPED: Check the local cache
-                if (descriptor.lifetime === "scoped") {
-                    if (scopedCache[typedKey]) {
-                        return scopedCache[typedKey] as T;
-                    }
-                    
-                    const created = instantiate();
-                    scopedCache[typedKey] = created;
-                    return created as T;
-                }
-
-                return instantiate();
-            },
-
-            resolve: <T>(key: ServiceKey<T> | string): T => {
-                const service = provider.locate<T>(key);
-                if (!service) throw new Error(`Service '${key as string}' not registered.`);
-                return service;
-            },
-            
-        } as ServiceProvider<TDefinition>;
-
-        const proxyProvider = new Proxy(provider as ServiceProvider<TDefinition>, {
-            get(target, prop, receiver) {
-                if (prop === 'resolve' || prop === 'locate') {
-                    return Reflect.get(target, prop, receiver);
-                }
-                if (typeof prop === 'symbol') {
-                    return Reflect.get(target, prop, receiver);
-                }
-                if (prop === 'then') {
-                    return undefined; // Prevent issues with Promise-like behavior
-                }
-                return target.resolve(prop);
+                return null;
             }
-        });
 
-        return proxyProvider;
+            let fallbackKeyed: ServiceDescriptor<T> | null = null;
+            for (let i = _descriptors.length - 1; i >= 0; i--) {
+                const d = _descriptors[i];
+                if (d.type === typeId) {
+                    if (d.key === null) {
+                        return d as ServiceDescriptor<T>;
+                    }
+                    if (fallbackKeyed === null) {
+                        fallbackKeyed = d as ServiceDescriptor<T>;
+                    }
+                }
+            }
+
+            return fallbackKeyed;
+        }
+
+        function findAllDescriptors<T>(typeId: symbol, key?: ServiceKey | null): ServiceDescriptor<T>[] {
+            const matches: ServiceDescriptor<T>[] = [];
+            for (let i = 0; i < _descriptors.length; i++) {
+                const d = _descriptors[i];
+                if (key !== undefined && key !== null) {
+                    if (d.type === typeId && d.key === key) {
+                        matches.push(d as ServiceDescriptor<T>);
+                    }
+                } else {
+                    if (d.type === typeId) {
+                        matches.push(d as ServiceDescriptor<T>);
+                    }
+                }
+            }
+            return matches;
+        }
+
+        function instantiateDescriptor<T>(descriptor: ServiceDescriptor<T>, currentProvider: ServiceProvider): T {
+            const resolutionKey = descriptor.key !== null 
+                ? `${String(descriptor.type)}#${descriptor.key}` 
+                : String(descriptor.type);
+
+            if (_resolutionStack.has(resolutionKey)) {
+                const chain = Array.from(_resolutionStack).join(' -> ');
+                throw new Error(`Circular dependency detected: ${chain} -> ${resolutionKey}`);
+            }
+
+            function instantiate(trackInScoped: boolean): T {
+                _resolutionStack.add(resolutionKey);
+
+                let created: T;
+                if (descriptor.key === null) {
+                    created = (descriptor.factory as ServiceFactory<T>)(currentProvider);
+                } else {
+                    created = (descriptor.factory as KeyedServiceFactory<T>)(currentProvider, descriptor.key);
+                }
+
+                _resolutionStack.delete(resolutionKey);
+
+                if (trackInScoped) {
+                    _scopedInstances.push(created);
+                }
+
+                return created;
+            }
+
+            if (descriptor.lifetime === "singleton") {
+                if (descriptor.instance !== null) return descriptor.instance;
+                descriptor.instance = instantiate(false);
+                return descriptor.instance;
+            }
+
+            if (descriptor.lifetime === "scoped") {
+                if (isRoot) {
+                    throw new Error(`Cannot resolve scoped service ${formatService(descriptor.type, descriptor.key)} from the root ServiceProvider.`);
+                }
+                if (_scopedCache.has(descriptor as any)) {
+                    return _scopedCache.get(descriptor as any) as T;
+                }
+                const created = instantiate(true);
+                _scopedCache.set(descriptor as any, created);
+                return created;
+            }
+
+            return instantiate(false);
+        }
+
+        function getService<T>(typeId: symbol, currentProvider: ServiceProvider, key?: ServiceKey | null): T | null {
+            if (typeId === ServiceScopeFactory.Type) {
+                return _serviceScopeFactoryInstance as unknown as T;
+            }
+            if (typeId === ServiceScope.Type) {
+                return isRoot ? null : (scopeInstance as unknown as T);
+            }
+            if (typeId === ServiceProvider.Type) {
+                return currentProvider as unknown as T;
+            }
+
+            const descriptor = findDescriptor<T>(typeId, key);
+            if (!descriptor) return null;
+
+            return instantiateDescriptor(descriptor, currentProvider);
+        }
+
+        function getAllServices<T>(typeId: symbol, currentProvider: ServiceProvider, key?: ServiceKey | null): T[] {
+            const matchedDescriptors = findAllDescriptors<T>(typeId, key);
+            return matchedDescriptors.map(d => instantiateDescriptor(d, currentProvider));
+        }
+
+        function createProviderView(fixedKey: ServiceKey | null): ServiceProvider {
+
+            const view: ServiceProvider = {
+
+                find: ((...types: ServiceType<any>[]): any => {
+                    if (types.length === 1) {
+                        return getService(types[0], view, fixedKey);
+                    }
+                    return types.map(t => getService(t, view, fixedKey));
+                }) as any,
+
+                findKeyed: <T>(type: ServiceType<T>, key: ServiceKey): T | null => {
+                    return getService<T>(type, view, key);
+                },
+
+                get: ((...types: ServiceType<any>[]): any => {
+                    const resolveSingle = (t: ServiceType<any>, key: ServiceKey | null) => {
+                        const service = getService(t, view, key);
+                        if (!service) {
+                            throw new Error(`Service ${formatService(t, key)} not registered.`);
+                        }
+                        return service;
+                    };
+
+                    if (types.length === 1) {
+                        return resolveSingle(types[0], fixedKey);
+                    }
+                    return types.map(t => resolveSingle(t, fixedKey));
+                }) as any,
+
+                getKeyed: <T>(type: ServiceType<T>, key: ServiceKey): T => {
+                    const service = getService<T>(type, view, key);
+                    if (!service) {
+                        throw new Error(`Service ${formatService(type, key)} not registered.`);
+                    }
+                    return service;
+                },
+
+                getAll: <T>(type: ServiceType<T>): T[] => {
+                    return getAllServices(type, view, fixedKey);
+                },
+
+                withKey: (key: ServiceKey): KeyedServiceProvider => {
+                    return createProviderView(key);
+                },
+            };
+
+            return view;
+        }
+
+        const provider = createProviderView(null);
+
+        const dispose = () => {
+            for (let i = _scopedInstances.length - 1; i >= 0; i--) {
+                const instance = _scopedInstances[i] as Partial<Disposable>;
+                if (typeof instance?.dispose === 'function') {
+                    instance.dispose();
+                }
+            }
+        };
+
+        const disposeAsync = async () => {
+            for (let i = _scopedInstances.length - 1; i >= 0; i--) {
+                const instance = _scopedInstances[i] as Partial<AsyncDisposable & Disposable>;
+                if (typeof instance?.disposeAsync === 'function') {
+                    await instance.disposeAsync();
+                } else if (typeof instance?.dispose === 'function') {
+                    instance.dispose();
+                }
+            }
+        };
+
+        scopeInstance = { provider, dispose, disposeAsync };
+        return scopeInstance;
     }
+
+    return createScope(true).provider;
 }
 
-/**
- * Creates a new, empty ServiceCollection to begin fluent registration.
- */
-function createServiceCollection<TDefinition extends ServicesDefinition>(): ServiceCollection<TDefinition> {
-    
-    const registry = {} as ServiceRegistry<TDefinition>;
+export namespace ServiceProvider {
+    /**
+     * Compiles an array of service descriptors into a root `ServiceProvider`.
+     *
+     * @param descriptors The configured service descriptors.
+     * @returns The root `ServiceProvider` instance.
+     */
+    export const create = createProvider;
 
-    const builder: ServiceCollection<TDefinition> = {
-        addSingleton(key, factory) {
-            registry[key as unknown as keyof TDefinition] = { lifetime: 'singleton', factory } as ServiceDescriptor<any, TDefinition>;
-            return this;
-        },
-        addScoped(key, factory) {
-            registry[key as unknown as keyof TDefinition] = { lifetime: 'scoped', factory } as ServiceDescriptor<any, TDefinition>;
-            return this;
-        },
-        addTransient(key, factory) {
-            registry[key as unknown as keyof TDefinition] = { lifetime: 'transient', factory } as ServiceDescriptor<any, TDefinition>;
-            return this;
-        },
-        build: () => configureServiceContainer(registry),
-    };
-
-    return builder;
-}
-
-export const ServiceProvider = {
-    configure: configureServiceContainer,
-}
-
-export const ServiceCollection = {
-    create: createServiceCollection,
-}
+    /**
+     * Built-in token representing the active `ServiceProvider`.
+     */
+    export const Type = ServiceType.of<ServiceProvider>(Symbol("ServiceProvider"), { 
+        name: "ServiceProvider", 
+        description: "The active dependency injection container", 
+        module: "DependencyInjection" 
+    });
+};
