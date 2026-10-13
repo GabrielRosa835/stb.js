@@ -1,5 +1,5 @@
 import { Validation } from "../Validation";
-import { EqualityComparer } from "../../Common/EqualityComparer";
+import { EqualityComparer } from "../../common/EqualityComparer";
 
 export const ONE_OF_VALIDATION_ERROR_CODE = "VALIDATION_ONE_OF";
 

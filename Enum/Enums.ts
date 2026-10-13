@@ -1,4 +1,4 @@
-import { EqualityComparer } from '../Common/EqualityComparer';
+import { EqualityComparer } from '../common/EqualityComparer';
 
 /**
  * A type that cannot have inner fields and are compared by value

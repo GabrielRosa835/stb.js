@@ -1,4 +1,4 @@
-import { Serializable } from '../Common/Serializable';
+import { Serializable } from '../common/Serializable';
 
 /**
  * Tipo utilitário (branded type) que representa uma chave do local-storage.

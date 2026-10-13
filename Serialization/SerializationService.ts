@@ -1,4 +1,4 @@
-import { Serializable } from '../Common/Serializable';
+import { Serializable } from '../common/Serializable';
 
 export type SerializationService = {
     /**

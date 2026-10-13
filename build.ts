@@ -33,8 +33,8 @@ if (Files.existsSync(outFile)) {
 //    ADDING FILES    //
 //--------------------//
 
-files.push("Common/EqualityComparer.ts");
-files.push("Common/Serializable.ts");
+files.push("common/EqualityComparer.ts");
+files.push("common/Serializable.ts");
 
 files.push("Global/GlobalUtilities.ts");
 
