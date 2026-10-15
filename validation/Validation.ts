@@ -1,9 +1,9 @@
 export type Validation<T> = (entry: T, context?: Validation.Context) => Validation.Result;
 
 export namespace Validation {
-    
+
     export type ErrorLike = string | ErrorDefinition | Error;
-    
+
     export type ErrorDefinition = {
         message: string;
         property?: string;
@@ -12,7 +12,7 @@ export namespace Validation {
         state?: any;
         severity?: Severity;
     }
-    
+
     export type Error = {
         /** The error message */
         readonly message: string;
@@ -27,29 +27,28 @@ export namespace Validation {
         /** The code that uniquely identifies the error type */
         readonly code?: string;
     }
-    
+
     export type Result = {
         readonly errors: Error[];
         readonly isValid: boolean;
     }
-    
+
     export type Severity = "error" | "warning" | "info";
-    
+
     export type MessageFormatter = (error: Error) => string | void;
     export type ErrorInterceptor = (error: Error) => Error | void;
     export type ResultInterceptor = (error: Result) => Result | void;
-    
-    export type Unsubscriber = () => void;
 
-    interface CreateFailureOverloads {
-        failure(error: ErrorLike, ...errors: ErrorLike[]): Result;
-        failure(errors: ErrorLike[]): Result;
-    }
+    export type Unsubscriber = () => void;
 
     /**
      * The pipeline should always be 'message formatter' -> 'error interceptor' -> 'result interceptor'
      */
-    export type Context = CreateFailureOverloads & {
+    export type Context = {
+
+        failure(error: ErrorLike, ...errors: ErrorLike[]): Result;
+        failure(errors: ErrorLike[]): Result;
+
         /** User defined state to allow identifying and managing multiple contexts */
         readonly state: unknown;
 
@@ -64,6 +63,10 @@ export namespace Validation {
         readonly success: () => Result;
         readonly error: (def: ErrorDefinition | string) => Error
     }
+
+    export type GlobalContext = Validation.Context & {
+        createContext: (state: unknown) => Validation.Context;
+    };
 }
 
 const createContext = (state: unknown): Validation.Context => {
@@ -183,16 +186,12 @@ const createContext = (state: unknown): Validation.Context => {
     };
 }
 
-type GlobalValidationContext = Validation.Context & {
-    createContext: (state: unknown) => Validation.Context;
-};
-
 /** 
  * A global `Validation.Context`.
  * Used as fallback when no other is specified at the Validation<T> level.
  * Exposes a `createContext` method to create custom ones with a unique state as identifier.
  */
-export const Validation: GlobalValidationContext = {
+export const Validation: Validation.GlobalContext = {
     ...createContext(undefined),
     createContext,
 } as const;

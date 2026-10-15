@@ -1,4 +1,4 @@
-import {EqualityComparer} from "../Common/EqualityComparer";
+import {EqualityComparer} from "../common/EqualityComparer";
 
 export type Listener<T> = (data: T) => void;
 export type Unsubscribe = () => void;

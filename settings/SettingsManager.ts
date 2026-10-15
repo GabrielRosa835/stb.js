@@ -59,13 +59,15 @@ export type AsyncSettingsProvider<TSettings> = {
  */
 export type SettingsKey<TSettings> = string & { __type: TSettings };
 
-export const SettingsKey = {
+export namespace SettingsKey {
     /**
      * Creates a strongly-typed settings key.
      * @param value - The unique string identifier for the setting.
      * @returns A strongly-typed SettingsKey.
      */
-    for: <TSettings>(value: string): SettingsKey<TSettings> => value as SettingsKey<TSettings>,
+    export function of<TSettings>(value: string): SettingsKey<TSettings> {
+        return value as SettingsKey<TSettings>;
+    }
 }
 
 /**

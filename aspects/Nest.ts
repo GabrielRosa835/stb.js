@@ -20,7 +20,6 @@ export type Nest<TObject extends object> = TObject & {
   [Path in NestedKeyOf<TObject>]: NestedValueOf<TObject, Path>;
 };
 
-// 1. Create a private Symbol that acts as our secret key
 const RAW_TARGET = Symbol('RAW_TARGET');
 
 function traverse(prop: string, target: any) {
@@ -44,8 +43,8 @@ function traverse(prop: string, target: any) {
   return current;
 }
 
-export const Nest = {
-  for<TObject extends object>(obj: TObject): Nest<TObject> {
+export namespace Nest {
+  export function of<TObject extends object>(obj: TObject): Nest<TObject> {
     return new Proxy(obj as any, {
       get(target, prop) {
         if (prop === RAW_TARGET) {
@@ -57,8 +56,8 @@ export const Nest = {
         return Reflect.get(target, prop);
       }
     });
-  },
-  unwrap<TObject extends object>(nestObj: Nest<TObject>): TObject {
+  }
+  export function unwrap<TObject extends object>(nestObj: Nest<TObject>): TObject {
     return (nestObj as any)[RAW_TARGET];
   }
 };
