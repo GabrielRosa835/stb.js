@@ -1,9 +1,10 @@
 export { Log } from "./Log";
 export { LogLevel } from "./LogLevel";
 export { LogTo } from "./providers/LogTo";
+export { ConsoleLogger } from "./providers/ConsoleLoggerProvider";
 export { type Logger } from "./abstractions/Logger";
 export { type LoggerProvider } from "./abstractions/LoggerProvider";
-export { type LoggerFactory } from "./abstractions/LoggerFactory";
+export { LoggerFactory } from "./abstractions/LoggerFactory";
 export { type StateLogger } from "./abstractions/StateLogger";
 export { GroupLogger } from "./loggers/GroupLogger";
 export { ExtendedLogger } from "./loggers/ExtendedLogger";
