@@ -1,7 +1,7 @@
 import { NonEmptyArray } from "../common/NonEmptyArray";
 import { Results, Attempt } from "../results";
 
-export type Schema<T> = {
+export type Schema<T = any> = {
   isValid: (value: unknown) => boolean;
   validate: Schema.Validator<T>;
 }
